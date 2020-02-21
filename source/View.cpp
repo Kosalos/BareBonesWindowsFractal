@@ -148,6 +148,12 @@ void View::Render(ID3D11DeviceContext* pImmediateContext) {
 // =======================================================================
 
 void View::UpdateControlBuffer() {
+
+	if (FSTYLE == MANDELBROT) {
+		DX = (XMAX - XMIN) / float(XSIZE);	
+		DY = (YMAX - YMIN) / float(YSIZE);
+	}
+
 	D3D11_MAPPED_SUBRESOURCE MappedResource = { 0 };
 
 	context->Map(controlBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedResource);

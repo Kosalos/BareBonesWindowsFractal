@@ -22,12 +22,12 @@ DEResult resultInit() {
 
 DEResult DE(float3 pos) {
 	DEResult result = resultInit();
-	float k, t = Q3 + 0.25 * cos(Q4 * PI * Q1 * (pos.z - pos.x));
+	float k, t = FOAM2 + 0.25 * cos(BEND * PI * MULTIPLIER * (pos.z - pos.x));
 	float scale = 1;
 
 	for (int i = 0; i < MAXSTEPS; ++i) {
 		pos = -1.0 + 2.0 * frac(0.5 * pos + 0.5);
-		k = Q2 * t / dot(pos, pos);
+		k = FOAM * t / dot(pos, pos);
 		pos *= k;
 		scale *= k;
 	}
@@ -72,27 +72,58 @@ DEResult shortest_dist(float3 eye, float3 dir) {
 
 // -----------------------------------------------------------
 
+float2 complexPower(float2 value, float power) {
+	float rr = dot(value, value); // value.x* value.x + value.y * value.y; // radius squared
+	if (rr == 0) return 0.0001;
+
+	float p1 = pow(rr, power / 2);
+	float arg = atan2(value.y, value.x);
+	float2 p2 = float2(cos(power * arg), sin(power * arg));
+	return p1 * p2;
+}
+
+// -----------------------------------------------------------
+
 Texture2D<float4>   InputMap  : register(t0);
 RWTexture2D<float4> OutputMap : register(u0);
 
-[numthreads(32, 32, 1)]
+[numthreads(12, 12, 1)]
 void CSMain(
 	uint3 p:SV_DispatchThreadID)
 {
 	if (p.x >= uint(XSIZE) || p.y >= uint(YSIZE)) return;
 
-	float den = float(YSIZE);
-	float dx = 1.5 * (float(p.x) / den - 0.5);
-	float dy = -1.5 * (float(p.y) / den - 0.5);
-	float3 direction = normalize((sideVector * dx) + (topVector * dy) + viewVector).xyz;
-	DEResult result = shortest_dist(camera.xyz, direction);
 	float3 color = float3(0, 0, 0);
 
-	if (result.dist <= MAX_DIST - 0.0001) {
-		float3 position = camera.xyz + result.dist * direction;
-		float3 cc, normal = calcNormal(position);
+	if (FSTYLE == APOLLONIAN) {
+		float den = float(YSIZE);
+		float dx = 1.5 * (float(p.x) / den - 0.5);
+		float dy = -1.5 * (float(p.y) / den - 0.5);
+		float3 direction = normalize((sideVector * dx) + (topVector * dy) + viewVector).xyz;
+		DEResult result = shortest_dist(camera.xyz, direction);
 
-		color = float3(1 - (normal / 10 + sqrt(result.iter / 80.0)));
+		if (result.dist <= MAX_DIST - 0.0001) {
+			float3 position = camera.xyz + result.dist * direction;
+			float3 cc, normal = calcNormal(position);
+
+			color = float3(1 - (normal / 10 + sqrt(result.iter / 80.0)));
+		}
+	}
+	else { // Mandelbrot
+		float2 c = float2(XMIN + DX * float(p.x), YMIN + DY * float(p.y));
+		float2 z = float2(0, 0);
+		int i;
+
+		for (i = 0; i < MAXSTEPS; ++i) {
+			z = complexPower(z, POWER) + c;
+
+			if (dot(z, z) > 4) break;
+		}
+
+		float ratio = float(i) / float(MAXSTEPS);
+		color.x = 1.0 - ratio * 3;
+		color.y = color.x;
+		color.z = color.x;
 	}
 
 	OutputMap[p.xy] = float4(color, 1);

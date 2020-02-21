@@ -33,6 +33,8 @@ public:
 	
 	void alterMaxSteps(int dir);
 	void alterParameter(float* var, float dir, float min, float max, float delta);
+	void toggleFractalStyle();
+	void zoom(int dir);
 };
 
 extern Fractal fractal;

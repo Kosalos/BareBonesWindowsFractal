@@ -24,7 +24,7 @@ void windowSizePositionChanged();
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message) {
-	case WM_EXITSIZEMOVE:
+	case WM_SIZE:
 		windowSizePositionChanged();
 		return 0;
 	case WM_IME_NOTIFY:
@@ -50,6 +50,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_MOUSEMOVE:
 		fractal.mouseMove(wParam, lParam);
 		break;
+	case WM_MOUSEWHEEL:
+	{
+		int direction = GET_WHEEL_DELTA_WPARAM(wParam);
+		fractal.zoom(direction < 0 ? -1 : 1);
+	}
+	break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;

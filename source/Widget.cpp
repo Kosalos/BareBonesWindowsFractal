@@ -95,16 +95,38 @@ const char* help1[] = {
 	""
 };
 
+const char* help2[] = {
+	"Mandelbrot",
+	" ",
+	"Key Commands",
+	"1,2 : alter #iterations",
+	"Q,W : alter Zoom",
+	"A,S : alter Power",
+	"4,5 : Jog Left/Right",
+	"6,7 : Jog Up/Down",
+	" ",
+	"3   : Reset",
+	"<Spc> : Switch to Apollonian",
+	" ",
+	"Hold <Shift> to alter slowly",
+	"Hold <Ctrl>  to alter quickly",
+	"Hold <Shift> + <Ctrl> to alter very quickly",
+	" ",
+	"Mouse pans the image",
+	"Mouse Wheel zooms the image",
+	""
+};
+
 void Widget::drawWindow() {
 	PAINTSTRUCT ps;
 	hdc = BeginPaint(hWnd, &ps);
 	int index = 0;
 	int x = 5;
 	int y = 5;
-	const char** help = help1;
-
-
+	const char** help = (FSTYLE == MANDELBROT) ? help2 : help1;
+	
 	SelectObject(hdc, GetStockObject(WHITE_BRUSH));
+	Rectangle(hdc, -1,-1, 1000, 1000);
 	SetTextColor(hdc,RGB(0, 0, 0));
 	
 	for (;;) {

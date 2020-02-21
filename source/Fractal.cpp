@@ -19,7 +19,6 @@ void Fractal::init() {
 	isControlKeyPressed = false;
 
 	reset();
-	isDirty = true;
 }
 
 FLOAT length(XMFLOAT4 v) {
@@ -67,17 +66,24 @@ void Fractal::reset() {
 	YSIZE = windowHeight;
 	updateShaderDirectionVector(XMFLOAT4(0, 0.1, 1, 0));
 
-	control.camera = XMFLOAT4(0.42461035, 10.847559, 2.5749633, 0);
-	MAXSTEPS = 12;
+	if (FSTYLE == APOLLONIAN) {
+		control.camera = XMFLOAT4(0.42461035, 10.847559, 2.5749633, 0);
+		MAXSTEPS = 12;
+		MULTIPLIER = 25.0f;
+		FOAM = 1.05265248;
+		FOAM2 = 1.06572711f;
+		BEND = 0.0202780124f;
+	}
+	else {
+		MAXSTEPS = 100;
+		XMIN = -2;
+		XMAX = 1;
+		YMIN = -1.5;
+		YMAX = 1.5;
+		POWER = 2;
+	}
 
-	//  Q1 multiplier
-	//  Q2 foam
-	//  Q3 foam2
-	//  Q4 bend
-	Q1 = 25.0f;
-	Q2 = 1.05265248;
-	Q3 = 1.06572711f;
-	Q4 = 0.0202780124f;
+	isDirty = true;
 }
 
 XMFLOAT4 add4(XMFLOAT4 v1, XMFLOAT4 v2) {
@@ -136,13 +142,23 @@ bool alternateJogMode = false; // 'A' key pressed while mouse jogging? = XZ move
 bool rotateMode = false; // 'Z' key pressed while jogging? = rotate camera rather than move it.
 
 void Fractal::moveCamera(XMFLOAT4 amt) {
-	if (rotateMode) {
-		updateShaderDirectionVector(add4(control.viewVector, amt));
+	if (FSTYLE == APOLLONIAN) {
+		if (rotateMode) {
+			updateShaderDirectionVector(add4(control.viewVector, amt));
+		}
+		else {
+			control.camera = sub4(control.camera, mult4(control.sideVector, amt.x));
+			control.camera = sub4(control.camera, mult4(control.topVector, amt.y));
+			control.camera = add4(control.camera, mult4(control.viewVector, amt.z));
+		}
 	}
 	else {
-		control.camera = sub4(control.camera, mult4(control.sideVector, amt.x));
-		control.camera = sub4(control.camera, mult4(control.topVector, amt.y));
-		control.camera = add4(control.camera, mult4(control.viewVector, amt.z));
+		amt.x *= (XMAX - XMIN);
+		amt.y *= (YMAX - YMIN);
+		XMIN -= amt.x;
+		XMAX -= amt.x;
+		YMIN += amt.y;
+		YMAX += amt.y;
 	}
 }
 
@@ -206,16 +222,36 @@ void Fractal::keyDown(int key) {
 	switch (tolower(key)) {
 	case '1':   alterMaxSteps(-1);		break;
 	case '2':   alterMaxSteps(+1);		break;
-	case '3':	reset(); isDirty = true;  break;
-	case ' ':   break;
-	case 'q':	alterParameter(&Q1, -1, 10, 300, 0.2);	break;
-	case 'w':	alterParameter(&Q1, +1, 10, 300, 0.2);	break;
-	case 'a':	alterParameter(&Q2, -1, 0.1, 3, 0.02);	break;
-	case 's':	alterParameter(&Q2, +1, 0.1, 3, 0.02);	break;
-	case 'z':	alterParameter(&Q3, -1, 0.1, 3, 0.02);	break;
-	case 'x':	alterParameter(&Q3, +1, 0.1, 3, 0.02);	break;
-	case 'e':   alterParameter(&Q4, -1, 0.01, 0.03, 0.0001);	break;
-	case 'r':   alterParameter(&Q4, +1, 0.01, 0.03, 0.0001);	break;
+	case '3':	reset();				break;
+	case ' ':   toggleFractalStyle();	break;
+	case 'q':
+		if (FSTYLE == APOLLONIAN)
+			alterParameter(&MULTIPLIER, -1, 10, 300, 0.2);
+		else
+			zoom(-1);
+		break;
+	case 'w':
+		if (FSTYLE == APOLLONIAN)
+			alterParameter(&MULTIPLIER, +1, 10, 300, 0.2);
+		else
+			zoom(+1);
+		break;
+	case 'a':
+		if (FSTYLE == APOLLONIAN)
+			alterParameter(&FOAM, -1, 0.1, 3, 0.02);
+		else
+			alterParameter(&POWER, -1, 1.5, 8, 0.02);
+		break;
+	case 's':
+		if (FSTYLE == APOLLONIAN)
+			alterParameter(&FOAM, +1, 0.1, 3, 0.02);
+		else
+			alterParameter(&POWER, +1, 1.5, 8, 0.02);
+		break;
+	case 'z':	alterParameter(&FOAM2, -1, 0.1, 3, 0.02);	break;
+	case 'x':	alterParameter(&FOAM2, +1, 0.1, 3, 0.02);	break;
+	case 'e':   alterParameter(&BEND, -1, 0.01, 0.03, 0.0001);	break;
+	case 'r':   alterParameter(&BEND, +1, 0.01, 0.03, 0.0001);	break;
 
 	case '4':	jogCameraAndFocusPosition(-1, 0, 0);	break;
 	case '5':	jogCameraAndFocusPosition(+1, 0, 0);	break;
@@ -284,9 +320,10 @@ void Fractal::mouseTimerHandler() {
 }
 
 void Fractal::alterMaxSteps(int dir) {
+	int max = (FSTYLE == APOLLONIAN) ? 30 : 500;
 	MAXSTEPS += dir;
 	if (MAXSTEPS < 2) MAXSTEPS = 2; else
-	if (MAXSTEPS > 30) MAXSTEPS = 30;
+		if (MAXSTEPS > max) MAXSTEPS = max;
 	isDirty = true;
 }
 
@@ -304,3 +341,21 @@ void Fractal::alterParameter(float* var, float dir, float min, float max, float 
 	if (*var != oldValue) isDirty = true;
 }
 
+void Fractal::toggleFractalStyle() {
+	FSTYLE = 1 - FSTYLE;
+	InvalidateRect(cWidget.hWnd, NULL, NULL);
+	reset();
+}
+
+void Fractal::zoom(int dir) {
+	float amount = (dir == -1) ? 0.98 : 1.02;
+	float xsize = (XMAX - XMIN) * amount;
+	float ysize = (YMAX - YMIN) * amount;
+	float xc = (XMIN + XMAX) / 2;
+	float yc = (YMIN + YMAX) / 2;
+	XMIN = xc - xsize / 2;
+	XMAX = xc + xsize / 2;
+	YMIN = yc - ysize / 2;
+	YMAX = yc + ysize / 2;
+	isDirty = true;
+}
